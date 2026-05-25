@@ -6,9 +6,9 @@ class WarningBadge extends HTMLElement {
     this.isReady = false;
   }
 
-  // Reactividad: pulsing aparece/desaparece y vuelve a ejecutar render().
+  // Reactividad: pulsing y message actualizan el render.
   static get observedAttributes() {
-    return ['pulsing'];
+    return ['pulsing', 'message'];
   }
 
   connectedCallback() {
@@ -19,11 +19,22 @@ class WarningBadge extends HTMLElement {
   attributeChangedCallback(attributeName, oldValue, newValue) {
     if (oldValue === newValue) return;
     this.render();
-    this.emitPulseChange();
+
+    if (attributeName === 'pulsing') {
+      this.emitPulseChange();
+    }
   }
 
   get pulsing() {
     return this.hasAttribute('pulsing');
+  }
+
+  get message() {
+    return this.getAttribute('message') || this.textContent.trim() || 'Alerta activa';
+  }
+
+  set message(value) {
+    this.setAttribute('message', value);
   }
 
   emitPulseChange() {
@@ -76,6 +87,10 @@ class WarningBadge extends HTMLElement {
           font-size: 1.9rem;
         }
 
+        .message {
+          max-width: 100%;
+        }
+
         .is-pulsing {
           animation: pulse 950ms ease-in-out infinite;
         }
@@ -106,7 +121,7 @@ class WarningBadge extends HTMLElement {
 
       <aside class="badge ${pulseClass}" part="badge" role="status" aria-live="polite">
         <span class="icon" part="icon" aria-hidden="true">!</span>
-        <slot>Alerta activa</slot>
+        <span class="message" part="message">${this.message}</span>
       </aside>
     `;
   }

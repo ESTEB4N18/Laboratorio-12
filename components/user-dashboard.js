@@ -40,6 +40,7 @@ class UserDashboard extends HTMLElement {
 
     if (!warningBadge) return;
 
+    warningBadge.message = `Hola ${name}, saludo recibido`;
     warningBadge.setAttribute('pulsing', '');
     clearTimeout(this.pulseTimer);
 

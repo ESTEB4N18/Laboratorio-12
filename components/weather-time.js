@@ -4,49 +4,69 @@ class WeatherTime extends HTMLElement {
     // Shadow DOM: el clima mantiene HTML y CSS aislados del documento.
     this.attachShadow({ mode: 'open' });
     this.isReady = false;
+    this.abortController = null;
+    this.weather = {
+      temperature: null,
+      condition: null,
+      icon: null,
+      loading: false,
+      error: ''
+    };
   }
 
-  // Reactividad: city, temperature y condition actualizan el render.
+  // Reactividad: la ubicacion vuelve a consultar la API; temperature y condition son respaldo manual.
   static get observedAttributes() {
-    return ['city', 'temperature', 'condition'];
+    return ['city', 'latitude', 'longitude', 'temperature', 'condition'];
   }
 
   connectedCallback() {
     this.isReady = true;
     this.render();
-    this.emitWeatherUpdate();
+    this.loadWeather();
+  }
+
+  disconnectedCallback() {
+    this.cancelWeatherRequest();
   }
 
   attributeChangedCallback(attributeName, oldValue, newValue) {
     if (oldValue === newValue) return;
+    if (!this.isReady) return;
+
     this.render();
-    this.emitWeatherUpdate();
+
+    if (['city', 'latitude', 'longitude'].includes(attributeName)) {
+      this.loadWeather();
+    }
   }
 
   get city() {
     return this.getAttribute('city') || 'Ciudad';
   }
 
+  get latitude() {
+    return this.getAttribute('latitude') || '10.6346';
+  }
+
+  get longitude() {
+    return this.getAttribute('longitude') || '-85.4407';
+  }
+
   get temperature() {
-    return this.getAttribute('temperature') || '--';
+    return this.weather.temperature ?? this.getAttribute('temperature') ?? '--';
   }
 
   get condition() {
-    return this.getAttribute('condition') || 'Sin datos';
+    return this.weather.condition ?? this.getAttribute('condition') ?? 'Sin datos';
   }
 
   get conditionLabel() {
-    const labels = {
-      sunny: 'Soleado',
-      cloudy: 'Nublado',
-      rainy: 'Lluvioso',
-      stormy: 'Tormenta'
-    };
-
-    return labels[this.condition.toLowerCase()] || this.condition;
+    return this.condition;
   }
 
   get weatherIcon() {
+    if (this.weather.icon) return this.weather.icon;
+
     const icons = {
       sunny: 'SOL',
       cloudy: 'NUB',
@@ -55,6 +75,97 @@ class WeatherTime extends HTMLElement {
     };
 
     return icons[this.condition.toLowerCase()] || 'CLM';
+  }
+
+  getWeatherInfo(weatherCode) {
+    const weatherCodes = {
+      0: ['SOL', 'Despejado'],
+      1: ['SOL', 'Principalmente despejado'],
+      2: ['NUB', 'Parcialmente nublado'],
+      3: ['NUB', 'Nublado'],
+      45: ['NBL', 'Neblina'],
+      48: ['NBL', 'Neblina'],
+      51: ['LLV', 'Llovizna ligera'],
+      53: ['LLV', 'Llovizna'],
+      55: ['LLV', 'Llovizna intensa'],
+      61: ['LLV', 'Lluvia ligera'],
+      63: ['LLV', 'Lluvia'],
+      65: ['LLV', 'Lluvia fuerte'],
+      80: ['AGU', 'Aguaceros ligeros'],
+      81: ['AGU', 'Aguaceros'],
+      82: ['AGU', 'Aguaceros fuertes'],
+      95: ['TRM', 'Tormenta'],
+      96: ['TRM', 'Tormenta con granizo'],
+      99: ['TRM', 'Tormenta fuerte']
+    };
+
+    const [icon, label] = weatherCodes[weatherCode] || ['CLM', 'Clima actualizado'];
+    return { icon, label };
+  }
+
+  cancelWeatherRequest() {
+    if (!this.abortController) return;
+
+    this.abortController.abort();
+    this.abortController = null;
+  }
+
+  async loadWeather() {
+    this.cancelWeatherRequest();
+
+    this.abortController = new AbortController();
+    this.weather = {
+      ...this.weather,
+      loading: true,
+      error: ''
+    };
+    this.render();
+
+    const url = new URL('https://api.open-meteo.com/v1/forecast');
+    url.searchParams.set('latitude', this.latitude);
+    url.searchParams.set('longitude', this.longitude);
+    url.searchParams.set('current', 'temperature_2m,weather_code');
+    url.searchParams.set('timezone', 'auto');
+
+    try {
+      const response = await fetch(url, {
+        signal: this.abortController.signal
+      });
+
+      if (!response.ok) {
+        throw new Error('No se pudo obtener el clima');
+      }
+
+      const data = await response.json();
+      const currentWeather = data.current;
+
+      if (!currentWeather) {
+        throw new Error('La API no devolvio clima actual');
+      }
+
+      const temperature = Math.round(currentWeather.temperature_2m);
+      const weather = this.getWeatherInfo(currentWeather.weather_code);
+
+      this.weather = {
+        temperature,
+        condition: weather.label,
+        icon: weather.icon,
+        loading: false,
+        error: ''
+      };
+
+      this.render();
+      this.emitWeatherUpdate();
+    } catch (error) {
+      if (error.name === 'AbortError') return;
+
+      this.weather = {
+        ...this.weather,
+        loading: false,
+        error: 'Clima no disponible'
+      };
+      this.render();
+    }
   }
 
   emitWeatherUpdate() {
@@ -73,6 +184,8 @@ class WeatherTime extends HTMLElement {
   }
 
   render() {
+    const eyebrow = this.weather.loading ? 'Consultando clima' : 'Clima actual';
+
     this.shadowRoot.innerHTML = `
       <style>
         :host {
@@ -171,11 +284,20 @@ class WeatherTime extends HTMLElement {
           color: #547079;
           font-size: 0.9rem;
         }
+
+        .message {
+          position: relative;
+          z-index: 1;
+          margin: 0;
+          color: #8b5151;
+          font-size: 0.88rem;
+          font-weight: 700;
+        }
       </style>
 
       <section class="weather" part="card">
         <div class="header">
-          <p class="eyebrow">Clima actual</p>
+          <p class="eyebrow">${eyebrow}</p>
           <h2 class="city" part="city">${this.city}</h2>
         </div>
 
@@ -188,6 +310,7 @@ class WeatherTime extends HTMLElement {
           </div>
         </div>
 
+        ${this.weather.error ? `<p class="message">${this.weather.error}</p>` : ''}
         <slot name="note"></slot>
       </section>
     `;
