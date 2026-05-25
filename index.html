@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laboratorio 12</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="page">
+    <user-dashboard>
+      <user-card
+        name="Alexander Rojas"
+        role="Profesor"
+        avatar="https://i.pravatar.cc/150?img=6">
+      </user-card>
+
+      <weather-time
+        city="Liberia"
+        temperature="31"
+        condition="Sunny">
+      </weather-time>
+
+      <warning-badge>
+        Sesión por expirar
+      </warning-badge>
+    </user-dashboard>
+  </main>
+
+  <script type="module" src="./components/user-card.js"></script>
+  <script type="module" src="./components/weather-time.js"></script>
+  <script type="module" src="./components/warning-badge.js"></script>
+  <script type="module" src="./components/user-dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "name": "laboratorio-12",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "happy-dom": "^20.9.0",
+    "vite": "^8.0.14",
+    "vitest": "^4.1.7"
+  }
+}
